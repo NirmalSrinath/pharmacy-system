@@ -1,0 +1,5 @@
+Drop and recreate the database
+DROP DATABASE pharmacy_db;
+CREATE DATABASE pharmacy_db;
+Or from the command line:
+"C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -proot -e "DROP DATABASE IF EXISTS pharmacy_db; CREATE DATABASE pharmacy_db;"
