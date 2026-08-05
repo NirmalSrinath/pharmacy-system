@@ -72,8 +72,9 @@ function Purchases() {
   const [confirmDialog, setConfirmDialog] = useState(false);
   const [confirmLoading, setConfirmLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const [dateFrom, setDateFrom] = useState(today);
+  const [dateTo, setDateTo] = useState(today);
   const [editingId, setEditingId] = useState(null);
 
   useEffect(() => {
@@ -99,8 +100,8 @@ function Purchases() {
     setHistoryLoading(true);
     try {
       const params = {};
-      if (dateFrom) params.from = dateFrom;
-      if (dateTo) params.to = dateTo;
+      if (dateFrom) params.startDate = dateFrom;
+      if (dateTo) params.endDate = dateTo;
       const res = await purchaseAPI.getAll(params);
       const data = res.data?.data || res.data?.content || res.data || [];
       setPurchaseHistory(Array.isArray(data) ? data : []);
@@ -688,8 +689,27 @@ function Purchases() {
                 InputLabelProps={{ shrink: true }}
                 sx={{ width: 150 }}
               />
-              <Button variant="outlined" onClick={fetchPurchaseHistory} size="small">
-                Filter
+              <Button variant="contained" onClick={fetchPurchaseHistory} size="small">
+                Search
+              </Button>
+              <Button
+                variant="outlined" size="small" color="inherit"
+                onClick={() => {
+                  const t = format(new Date(), 'yyyy-MM-dd');
+                  setDateFrom(t);
+                  setDateTo(t);
+                }}
+              >
+                Today
+              </Button>
+              <Button
+                variant="outlined" size="small" color="inherit"
+                onClick={() => {
+                  setDateFrom('');
+                  setDateTo('');
+                }}
+              >
+                Clear
               </Button>
             </Box>
           </Box>

@@ -43,8 +43,15 @@ public class SalesController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<SaleDTO>>> getAllSales() {
-        List<SaleDTO> sales = salesService.getAllSales();
+    public ResponseEntity<ApiResponse<List<SaleDTO>>> getAllSales(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        List<SaleDTO> sales;
+        if (startDate != null && endDate != null) {
+            sales = salesService.getSalesByDateRange(startDate, endDate);
+        } else {
+            sales = salesService.getAllSales();
+        }
         return ResponseEntity.ok(ApiResponse.success(sales));
     }
 

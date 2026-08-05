@@ -33,8 +33,15 @@ public class PurchaseController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<PurchaseDTO>>> getAllPurchases() {
-        List<PurchaseDTO> purchases = purchaseService.getAllPurchases();
+    public ResponseEntity<ApiResponse<List<PurchaseDTO>>> getAllPurchases(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        List<PurchaseDTO> purchases;
+        if (startDate != null && endDate != null) {
+            purchases = purchaseService.getPurchasesByDateRange(startDate, endDate);
+        } else {
+            purchases = purchaseService.getAllPurchases();
+        }
         return ResponseEntity.ok(ApiResponse.success(purchases));
     }
 
