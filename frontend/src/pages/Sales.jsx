@@ -53,6 +53,7 @@ function Sales() {
   const { user } = useAuth();
   const [medicines, setMedicines] = useState([]);
   const [cart, setCart] = useState([]);
+  const [searchInput, setSearchInput] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [phoneError, setPhoneError] = useState('');
@@ -531,10 +532,13 @@ function Sales() {
               <Typography variant="h6" fontWeight={600} mb={2}>Search Medicines</Typography>
               <Autocomplete
                 fullWidth
+                open={searchInput.length > 0}
                 options={medicines.filter((m) => (m.stockQuantity || m.stock_quantity || 0) > 0)}
                 getOptionLabel={(option) => option.name || ''}
                 isOptionEqualToValue={(option, value) => (option.id || option.medicineId) === (value.id || value.medicineId)}
-                onChange={(_, val) => { if (val) addToCart(val); }}
+                inputValue={searchInput}
+                onInputChange={(_, val) => setSearchInput(val)}
+                onChange={(_, val) => { if (val) { addToCart(val); setSearchInput(''); } }}
                 filterOptions={(options, state) => {
                   const input = state.inputValue.toLowerCase();
                   if (!input) return [];
