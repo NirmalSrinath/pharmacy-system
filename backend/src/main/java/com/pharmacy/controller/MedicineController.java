@@ -69,4 +69,13 @@ public class MedicineController {
         List<MedicineDTO> medicines = medicineService.getLowStockMedicines(threshold);
         return ResponseEntity.ok(ApiResponse.success(medicines));
     }
+
+    @GetMapping("/find-exact")
+    public ResponseEntity<ApiResponse<List<MedicineDTO>>> findExactMatch(
+            @RequestParam String name,
+            @RequestParam(required = false) String batchNumber,
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate expiryDate) {
+        List<MedicineDTO> medicines = medicineService.findExactMatch(name, batchNumber, expiryDate);
+        return ResponseEntity.ok(ApiResponse.success(medicines));
+    }
 }

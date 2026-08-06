@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { salesAPI, medicineAPI } from '../services/api';
 import { format } from 'date-fns';
@@ -31,6 +31,7 @@ import {
   Divider,
   InputAdornment,
   Tooltip,
+  Autocomplete,
 } from '@mui/material';
 import {
   Search,
@@ -51,8 +52,6 @@ const GST_RATE = 18;
 function Sales() {
   const { user } = useAuth();
   const [medicines, setMedicines] = useState([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState([]);
   const [cart, setCart] = useState([]);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -61,7 +60,6 @@ function Sales() {
   const [discount, setDiscount] = useState(0);
   const [salesHistory, setSalesHistory] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [searchLoading, setSearchLoading] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' });
   const [checkoutDialog, setCheckoutDialog] = useState(false);
@@ -74,7 +72,6 @@ function Sales() {
   const [viewSale, setViewSale] = useState(null);
   const [dateFrom, setDateFrom] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [dateTo, setDateTo] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const searchRef = useRef(null);
 
   useEffect(() => {
     fetchMedicines();
@@ -145,39 +142,6 @@ function Sales() {
 
   const filteredHistory = salesHistory;
 
-  const handleSearch = useCallback(
-    async (query) => {
-      if (!query.trim()) {
-        setSearchResults([]);
-        return;
-      }
-      setSearchLoading(true);
-      try {
-        const res = await medicineAPI.search(query);
-        const data = res.data?.data || res.data?.content || res.data || [];
-        const available = (Array.isArray(data) ? data : []).filter(
-          (m) => (m.stockQuantity || m.stock_quantity || 0) > 0
-        );
-        setSearchResults(available);
-      } catch {
-        const filtered = medicines.filter(
-          (m) =>
-            m.name?.toLowerCase().includes(query.toLowerCase()) ||
-            m.genericName?.toLowerCase().includes(query.toLowerCase())
-        );
-        setSearchResults(filtered.filter((m) => (m.stockQuantity || m.stock_quantity || 0) > 0));
-      } finally {
-        setSearchLoading(false);
-      }
-    },
-    [medicines]
-  );
-
-  useEffect(() => {
-    const timer = setTimeout(() => handleSearch(searchQuery), 300);
-    return () => clearTimeout(timer);
-  }, [searchQuery, handleSearch]);
-
   const addToCart = (medicine) => {
     const medId = medicine.id || medicine.medicineId;
     const existing = cart.find((item) => item.medicineId === medId);
@@ -205,11 +169,6 @@ function Sales() {
           type: medicine.type || '',
         },
       ]);
-    }
-    setSearchQuery('');
-    setSearchResults([]);
-    if (searchRef.current) {
-      searchRef.current.querySelector('input').value = '';
     }
   };
 
@@ -567,50 +526,55 @@ function Sales() {
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={7}>
-          <Card sx={{ mb: 3 }} ref={searchRef}>
+          <Card sx={{ mb: 3 }}>
             <CardContent>
               <Typography variant="h6" fontWeight={600} mb={2}>Search Medicines</Typography>
-              <TextField
+              <Autocomplete
                 fullWidth
-                placeholder="Type medicine name to search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      {searchLoading ? <CircularProgress size={20} /> : <Search />}
-                    </InputAdornment>
-                  ),
+                options={medicines.filter((m) => (m.stockQuantity || m.stock_quantity || 0) > 0)}
+                getOptionLabel={(option) => option.name || ''}
+                isOptionEqualToValue={(option, value) => (option.id || option.medicineId) === (value.id || value.medicineId)}
+                onChange={(_, val) => { if (val) addToCart(val); }}
+                filterOptions={(options, state) => {
+                  const input = state.inputValue.toLowerCase();
+                  if (!input) return [];
+                  return options.filter((m) => {
+                    const name = (m.name || '').toLowerCase();
+                    const generic = (m.genericName || '').toLowerCase();
+                    const batch = (m.batchNumber || '').toLowerCase();
+                    return name.includes(input) || generic.includes(input) || batch.includes(input);
+                  });
                 }}
-              />
-              {searchResults.length > 0 && (
-                <Box sx={{ mt: 1, maxHeight: 250, overflow: 'auto', border: 1, borderColor: 'divider', borderRadius: 1 }}>
-                  {searchResults.map((med) => (
-                    <Box
-                      key={med.id || med.medicineId}
-                      sx={{ p: 1.5, cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' }, borderBottom: 1, borderColor: 'divider' }}
-                      onClick={() => addToCart(med)}
-                    >
-                      <Box display="flex" justifyContent="space-between" alignItems="center">
-                        <Box>
-                          <Typography variant="body2" fontWeight={600}>{med.name}</Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            {med.genericName || ''} | Batch: {med.batchNumber || 'N/A'} | Rack: {med.rackNumber || 'N/A'} | Stock: {med.stockQuantity || 0}
-                          </Typography>
-                        </Box>
-                        <Typography variant="body2" fontWeight={600} color="primary">
-                          ₹{Number(med.salePrice || 0).toFixed(2)}
+                renderOption={(props, option) => (
+                  <li {...props} key={option.id || option.medicineId}>
+                    <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
+                      <Box>
+                        <Typography variant="body2" fontWeight={600}>{option.name}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {option.genericName || ''} | Batch: {option.batchNumber || 'N/A'} | Rack: {option.rackNumber || 'N/A'} | Stock: {option.stockQuantity || 0}
                         </Typography>
                       </Box>
+                      <Typography variant="body2" fontWeight={600} color="primary">
+                        ₹{Number(option.salePrice || 0).toFixed(2)}
+                      </Typography>
                     </Box>
-                  ))}
-                </Box>
-              )}
-              {searchQuery && !searchLoading && searchResults.length === 0 && (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  No medicines found with stock
-                </Typography>
-              )}
+                  </li>
+                )}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Type medicine name, generic, or batch number..."
+                    InputProps={{
+                      ...params.InputProps,
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Search />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                )}
+              />
             </CardContent>
           </Card>
 

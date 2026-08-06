@@ -205,25 +205,45 @@ function Purchases() {
     setConfirmLoading(true);
     try {
       let createdCount = 0;
+      let updatedCount = 0;
+
       for (const item of purchaseList) {
         let medicineId = item.medicineId;
 
         if (item.isNew || medicineId == null) {
-          const medRes = await medicineAPI.create({
-            name: item.medicineName,
-            genericName: item.genericName || '',
-            batchNumber: item.batchNumber || '',
-            rackNumber: item.rackNumber || '',
-            type: item.medicineType || '',
-            salePrice: item.unitPrice * 1.1,
-            purchasePrice: item.unitPrice,
-            stockQuantity: 0,
-            gstRate: item.gstRate,
-            expiryDate: item.expiryDate || '2027-12-31',
-            lowStockThreshold: item.lowStockThreshold || 10,
-          });
-          const createdMed = medRes.data?.data || medRes.data;
-          medicineId = createdMed.id || createdMed.medicineId;
+          const name = item.medicineName.trim();
+          const batch = (item.batchNumber || '').trim();
+          const expiry = item.expiryDate || null;
+
+          let existingMed = null;
+          if (name && expiry) {
+            try {
+              const matchRes = await medicineAPI.findExact({ name, batchNumber: batch, expiryDate: expiry });
+              const matches = matchRes.data?.data || [];
+              if (matches.length > 0) existingMed = matches[0];
+            } catch {}
+          }
+
+          if (existingMed) {
+            medicineId = existingMed.id || existingMed.medicineId;
+            updatedCount++;
+          } else {
+            const medRes = await medicineAPI.create({
+              name,
+              genericName: item.genericName || '',
+              batchNumber: batch,
+              rackNumber: item.rackNumber || '',
+              type: item.medicineType || '',
+              salePrice: item.unitPrice * 1.1,
+              purchasePrice: item.unitPrice,
+              stockQuantity: 0,
+              gstRate: item.gstRate,
+              expiryDate: item.expiryDate || '2027-12-31',
+              lowStockThreshold: item.lowStockThreshold || 10,
+            });
+            const createdMed = medRes.data?.data || medRes.data;
+            medicineId = createdMed.id || createdMed.medicineId;
+          }
         }
 
         await purchaseAPI.create({
@@ -239,7 +259,10 @@ function Purchases() {
         createdCount++;
       }
 
-      setSnackbar({ open: true, message: `${createdCount} purchase(s) recorded successfully!`, severity: 'success' });
+      const msg = updatedCount > 0
+        ? `${createdCount} purchase(s) recorded (${updatedCount} updated existing, ${createdCount - updatedCount} new)`
+        : `${createdCount} purchase(s) recorded successfully!`;
+      setSnackbar({ open: true, message: msg, severity: 'success' });
       setPurchaseList([]);
       setConfirmDialog(false);
       fetchPurchaseHistory();

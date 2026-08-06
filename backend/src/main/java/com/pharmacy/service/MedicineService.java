@@ -100,6 +100,12 @@ public class MedicineService {
                 .collect(Collectors.toList());
     }
 
+    public List<MedicineDTO> findExactMatch(String name, String batchNumber, LocalDate expiryDate) {
+        return medicineRepository.findExactMatch(name, batchNumber, expiryDate).stream()
+                .map(this::toDTO)
+                .collect(Collectors.toList());
+    }
+
     public void updateStock(Long medicineId, int quantityChange) {
         Medicine medicine = medicineRepository.findById(medicineId)
                 .orElseThrow(() -> new ResourceNotFoundException("Medicine", "id", medicineId));

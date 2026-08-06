@@ -26,9 +26,11 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    if (error.response?.status === 401 || error.response?.status === 403) {
       localStorage.removeItem('pharmacy_user');
-      window.location.href = '/login';
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
@@ -52,6 +54,7 @@ export const medicineAPI = {
   getExpiryAlerts: (params) => api.get('/api/medicines/expiry-alerts', { params }),
   getLowStock: (params) => api.get('/api/medicines/low-stock', { params }),
   search: (query) => api.get('/api/medicines/search', { params: { q: query } }),
+  findExact: (params) => api.get('/api/medicines/find-exact', { params }),
   importCSV: (formData) => api.post('/api/medicines/import', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),

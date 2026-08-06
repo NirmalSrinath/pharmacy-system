@@ -1,22 +1,82 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { authAPI } from '../services/api';
 
 const AuthContext = createContext(null);
 
+function parseJwt(token) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(base64));
+  } catch {
+    return null;
+  }
+}
+
+function getTokenExpiry(token) {
+  const payload = parseJwt(token);
+  if (!payload || !payload.exp) return null;
+  return payload.exp * 1000;
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const logoutTimerRef = useRef(null);
+
+  const clearLogoutTimer = useCallback(() => {
+    if (logoutTimerRef.current) {
+      clearTimeout(logoutTimerRef.current);
+      logoutTimerRef.current = null;
+    }
+  }, []);
+
+  const logout = useCallback(() => {
+    clearLogoutTimer();
+    setUser(null);
+    localStorage.removeItem('pharmacy_user');
+  }, [clearLogoutTimer]);
+
+  const scheduleLogout = useCallback((token) => {
+    clearLogoutTimer();
+    const expiry = getTokenExpiry(token);
+    if (!expiry) {
+      logout();
+      return;
+    }
+    const now = Date.now();
+    const delay = expiry - now;
+    if (delay <= 0) {
+      logout();
+      return;
+    }
+    logoutTimerRef.current = setTimeout(() => {
+      logout();
+      window.location.href = '/login';
+    }, delay);
+  }, [logout, clearLogoutTimer]);
 
   useEffect(() => {
     const stored = localStorage.getItem('pharmacy_user');
     if (stored) {
       try {
-        setUser(JSON.parse(stored));
+        const parsed = JSON.parse(stored);
+        if (parsed?.token) {
+          const expiry = getTokenExpiry(parsed.token);
+          if (expiry && Date.now() >= expiry) {
+            localStorage.removeItem('pharmacy_user');
+          } else {
+            setUser(parsed);
+            scheduleLogout(parsed.token);
+          }
+        }
       } catch {
         localStorage.removeItem('pharmacy_user');
       }
     }
     setLoading(false);
+
+    return () => clearLogoutTimer();
   }, []);
 
   const login = useCallback(async (username, password) => {
@@ -24,13 +84,9 @@ export function AuthProvider({ children }) {
     const userData = response.data?.data || response.data;
     setUser(userData);
     localStorage.setItem('pharmacy_user', JSON.stringify(userData));
+    scheduleLogout(userData.token);
     return userData;
-  }, []);
-
-  const logout = useCallback(() => {
-    setUser(null);
-    localStorage.removeItem('pharmacy_user');
-  }, []);
+  }, [scheduleLogout]);
 
   const value = {
     user,

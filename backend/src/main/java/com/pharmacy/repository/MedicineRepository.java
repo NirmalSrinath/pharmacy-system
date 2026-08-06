@@ -32,4 +32,10 @@ public interface MedicineRepository extends JpaRepository<Medicine, Long> {
            "OR LOWER(m.genericName) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "OR LOWER(m.manufacturer) LIKE LOWER(CONCAT('%', :keyword, '%'))")
     List<Medicine> searchMedicines(@Param("keyword") String keyword);
+    @Query("SELECT m FROM Medicine m WHERE LOWER(m.name) = LOWER(:name) " +
+           "AND LOWER(COALESCE(m.batchNumber, '')) = LOWER(COALESCE(:batchNumber, '')) " +
+           "AND m.expiryDate = :expiryDate")
+    List<Medicine> findExactMatch(@Param("name") String name,
+                                   @Param("batchNumber") String batchNumber,
+                                   @Param("expiryDate") LocalDate expiryDate);
 }
