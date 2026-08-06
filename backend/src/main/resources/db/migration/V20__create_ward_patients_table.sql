@@ -1,0 +1,40 @@
+CREATE TABLE ward_patients (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    patient_name VARCHAR(200) NOT NULL,
+    patient_phone VARCHAR(15),
+    doctor_name VARCHAR(200),
+    ward_number VARCHAR(50),
+    bed_number VARCHAR(50),
+    admit_date DATE NOT NULL,
+    discharge_date DATE,
+    status VARCHAR(20) NOT NULL DEFAULT 'ADMITTED',
+    total_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    gst_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    discount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    grand_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    payment_method VARCHAR(20) DEFAULT 'CASH',
+    sale_id BIGINT,
+    created_by BIGINT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_ward_patient_sale FOREIGN KEY (sale_id) REFERENCES sales(id),
+    CONSTRAINT fk_ward_patient_user FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+CREATE TABLE ward_patient_items (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    ward_patient_id BIGINT NOT NULL,
+    medicine_id BIGINT NOT NULL,
+    medicine_name VARCHAR(200) NOT NULL,
+    quantity INT NOT NULL DEFAULT 1,
+    unit_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    gst_rate DECIMAL(5,2) NOT NULL DEFAULT 18.00,
+    gst_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    added_by BIGINT,
+    added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_ward_item_patient FOREIGN KEY (ward_patient_id) REFERENCES ward_patients(id) ON DELETE CASCADE,
+    CONSTRAINT fk_ward_item_medicine FOREIGN KEY (medicine_id) REFERENCES medicines(id),
+    CONSTRAINT fk_ward_item_user FOREIGN KEY (added_by) REFERENCES users(id)
+);

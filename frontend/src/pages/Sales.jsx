@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { salesAPI, medicineAPI } from '../services/api';
+import { salesAPI, medicineAPI, doctorAPI, staffAPI } from '../services/api';
+import WardPatientSales from './WardPatientSales';
 import { format } from 'date-fns';
 import Papa from 'papaparse';
 import { saveAs } from 'file-saver';
@@ -32,6 +33,12 @@ import {
   InputAdornment,
   Tooltip,
   Autocomplete,
+  Tabs,
+  Tab,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
 } from '@mui/material';
 import {
   Search,
@@ -44,6 +51,8 @@ import {
   ShoppingCart,
   CheckCircle,
   Print,
+  LocalHospital,
+  Badge,
 } from '@mui/icons-material';
 import { DataGrid } from '@mui/x-data-grid';
 
@@ -54,6 +63,7 @@ function Sales() {
   const [medicines, setMedicines] = useState([]);
   const [cart, setCart] = useState([]);
   const [searchInput, setSearchInput] = useState('');
+  const [selectedMed, setSelectedMed] = useState(null);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [phoneError, setPhoneError] = useState('');
@@ -73,11 +83,80 @@ function Sales() {
   const [viewSale, setViewSale] = useState(null);
   const [dateFrom, setDateFrom] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [dateTo, setDateTo] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [doctorName, setDoctorName] = useState('');
+  const [doctorQualification, setDoctorQualification] = useState('');
+  const [staffName, setStaffName] = useState('');
+  const [verifyPersonId, setVerifyPersonId] = useState('');
+  const [verifyPersonType, setVerifyPersonType] = useState('staff');
+  const [verifyPasscode, setVerifyPasscode] = useState('');
+  const [verifiedPerson, setVerifiedPerson] = useState(null);
+  const [staffVerifying, setStaffVerifying] = useState(false);
+  const [orderTab, setOrderTab] = useState(0);
+  const [pageTab, setPageTab] = useState(0);
+  const [savedDoctors, setSavedDoctors] = useState([]);
+  const [dbDoctors, setDbDoctors] = useState([]);
+  const [dbStaff, setDbStaff] = useState([]);
+  const [savedStaff, setSavedStaff] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('pharmacy_staff_list') || '[]'); }
+    catch { return []; }
+  });
 
   useEffect(() => {
     fetchMedicines();
     fetchSalesHistory();
+    fetchDoctors();
+    fetchDbDoctors();
+    fetchDbStaff();
   }, []);
+
+  const fetchDoctors = async () => {
+    try {
+      const res = await doctorAPI.getAll();
+      const data = res.data?.data || res.data || [];
+      const list = Array.isArray(data) ? data : [];
+      const apiDoctors = list
+        .filter((d) => d.active !== false && d.fullName)
+        .map((d) => ({ name: d.fullName, qualification: d.qualification || '' }));
+      const localDoctors = (() => {
+        try { return JSON.parse(localStorage.getItem('pharmacy_doctors') || '[]'); }
+        catch { return []; }
+      })();
+      const localList = localDoctors.map((d) =>
+        typeof d === 'string' ? { name: d, qualification: '' } : d
+      );
+      const mergedMap = new Map();
+      [...apiDoctors, ...localList].forEach((d) => {
+        if (!mergedMap.has(d.name)) mergedMap.set(d.name, d);
+      });
+      const merged = Array.from(mergedMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+      setSavedDoctors(merged);
+    } catch {
+      const localDoctors = (() => {
+        try { return JSON.parse(localStorage.getItem('pharmacy_doctors') || '[]'); }
+        catch { return []; }
+      })();
+      const localList = localDoctors.map((d) =>
+        typeof d === 'string' ? { name: d, qualification: '' } : d
+      );
+      setSavedDoctors(localList);
+    }
+  };
+
+  const fetchDbDoctors = async () => {
+    try {
+      const res = await doctorAPI.getActive();
+      const data = res.data?.data || res.data || [];
+      setDbDoctors(Array.isArray(data) ? data : []);
+    } catch { setDbDoctors([]); }
+  };
+
+  const fetchDbStaff = async () => {
+    try {
+      const res = await staffAPI.getActive();
+      const data = res.data?.data || res.data || [];
+      setDbStaff(Array.isArray(data) ? data : []);
+    } catch { setDbStaff([]); }
+  };
 
   const fetchMedicines = async () => {
     try {
@@ -104,6 +183,28 @@ function Sales() {
     } finally {
       setHistoryLoading(false);
     }
+  };
+
+  const saveDoctorToList = (name) => {
+    if (!name || !name.trim()) return;
+    const trimmed = name.trim();
+    setSavedDoctors((prev) => {
+      if (prev.some((d) => d.name.toLowerCase() === trimmed.toLowerCase())) return prev;
+      const updated = [...prev, { name: trimmed, qualification: '' }].sort((a, b) => a.name.localeCompare(b.name));
+      localStorage.setItem('pharmacy_doctors', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const saveStaffToList = (name) => {
+    if (!name || !name.trim()) return;
+    const trimmed = name.trim();
+    setSavedStaff((prev) => {
+      if (prev.some((s) => s.toLowerCase() === trimmed.toLowerCase())) return prev;
+      const updated = [...prev, trimmed].sort();
+      localStorage.setItem('pharmacy_staff_list', JSON.stringify(updated));
+      return updated;
+    });
   };
 
   const dailyStats = React.useMemo(() => {
@@ -297,6 +398,7 @@ function Sales() {
         </div>
         <div class="info-row">
           <div><span class="info-label">Payment:</span> ${sale.paymentMethod || 'CASH'}</div>
+          ${sale.doctorName ? `<div><span class="info-label">Doctor:</span> ${sale.doctorName}</div>` : ''}
         </div>
         <table>
           <thead>
@@ -367,12 +469,53 @@ function Sales() {
       setSnackbar({ open: true, message: 'Valid 10-digit phone number is required', severity: 'warning' });
       return;
     }
+    if (!verifyPersonId) {
+      setSnackbar({ open: true, message: 'Select a doctor or staff to verify', severity: 'warning' });
+      return;
+    }
+    if (!verifyPasscode.trim()) {
+      setSnackbar({ open: true, message: 'Passcode is required', severity: 'warning' });
+      return;
+    }
+
+    setStaffVerifying(true);
+    try {
+      let res;
+      if (verifyPersonType === 'doctor') {
+        res = await doctorAPI.verify(Number(verifyPersonId), verifyPasscode);
+      } else {
+        res = await staffAPI.verify(Number(verifyPersonId), verifyPasscode);
+      }
+      const result = res.data?.data;
+      if (result === true) {
+        const person = verifyPersonType === 'doctor'
+          ? dbDoctors.find((d) => d.id === Number(verifyPersonId))
+          : dbStaff.find((s) => s.id === Number(verifyPersonId));
+        setVerifiedPerson(person);
+      } else {
+        setSnackbar({ open: true, message: 'Invalid passcode', severity: 'error' });
+        setStaffVerifying(false);
+        return;
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message || err.message || 'Verification failed';
+      setSnackbar({ open: true, message: `Verification failed: ${msg}`, severity: 'error' });
+      setStaffVerifying(false);
+      return;
+    }
+    setStaffVerifying(false);
+
+    const doctorDisplay = doctorName.trim()
+      ? (doctorQualification ? `${doctorName.trim()} — ${doctorQualification}` : doctorName.trim())
+      : null;
 
     setCheckoutLoading(true);
     try {
       const saleData = {
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
+        doctorName: doctorDisplay,
+        staffName: verifiedPerson?.fullName || verifiedPerson?.full_name || verifyPersonType,
         paymentMethod,
         discount: String(discount || 0),
         saleItems: cart.map((item) => ({
@@ -384,12 +527,16 @@ function Sales() {
         })),
       };
 
+      if (doctorName.trim()) saveDoctorToList(doctorName);
+
       const res = await salesAPI.create(saleData);
       const createdSale = res.data?.data || res.data;
       const saleForPrint = {
         ...createdSale,
         customerName: customerName.trim(),
         customerPhone: customerPhone.trim(),
+        doctorName: doctorDisplay,
+        staffName: verifiedPerson?.fullName || verifiedPerson?.full_name || verifyPersonType,
         paymentMethod,
         discount,
         saleItems: cart.map((item) => {
@@ -412,8 +559,16 @@ function Sales() {
       setCart([]);
       setCustomerName('');
       setCustomerPhone('');
+      setDoctorName('');
+      setDoctorQualification('');
+      setStaffName('');
+      setVerifyPersonId('');
+      setVerifyPersonType('staff');
+      setVerifyPasscode('');
+      setVerifiedPerson(null);
       setDiscount(0);
       setPaymentMethod('CASH');
+      setOrderTab(0);
       setCheckoutDialog(false);
       fetchSalesHistory();
       fetchMedicines();
@@ -431,6 +586,7 @@ function Sales() {
       filteredHistory.map((s) => ({
         'Invoice #': s.invoiceNumber || `INV-${s.id}`,
         Customer: s.customerName || '',
+        Doctor: s.doctorName || '',
         Phone: s.customerPhone || '',
         'Items': s.saleItems?.length || 0,
         Subtotal: Number(s.subtotal || 0).toFixed(2),
@@ -449,6 +605,7 @@ function Sales() {
       filteredHistory.map((s) => ({
         'Invoice #': s.invoiceNumber || `INV-${s.id}`,
         Customer: s.customerName || '',
+        Doctor: s.doctorName || '',
         Phone: s.customerPhone || '',
         Items: s.saleItems?.length || 0,
         Subtotal: Number(s.subtotal || 0).toFixed(2),
@@ -469,6 +626,13 @@ function Sales() {
   const historyColumns = [
     { field: 'invoiceNumber', headerName: 'Invoice #', flex: 1, minWidth: 160 },
     { field: 'customerName', headerName: 'Customer', flex: 1, minWidth: 120 },
+    { field: 'doctorName', headerName: 'Doctor', flex: 1, minWidth: 120,
+      renderCell: (params) => (
+        <Typography variant="body2" color={params.value ? 'text.primary' : 'text.secondary'}>
+          {params.value || '-'}
+        </Typography>
+      ),
+    },
     { field: 'customerPhone', headerName: 'Phone', width: 110 },
     { field: 'saleItems', headerName: 'Items', width: 60,
       renderCell: (params) => params.value?.length || 0 },
@@ -517,14 +681,29 @@ function Sales() {
 
   return (
     <Box>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
         <Typography variant="h4" fontWeight={700}>Sales</Typography>
         <Box display="flex" gap={1}>
-          <Button variant="outlined" startIcon={<Download />} onClick={exportCSV} size="small">CSV</Button>
-          <Button variant="outlined" startIcon={<Download />} onClick={exportXLS} size="small">XLS</Button>
+          {pageTab === 0 && (
+            <>
+              <Button variant="outlined" startIcon={<Download />} onClick={exportCSV} size="small">CSV</Button>
+              <Button variant="outlined" startIcon={<Download />} onClick={exportXLS} size="small">XLS</Button>
+            </>
+          )}
         </Box>
       </Box>
 
+      <Tabs
+        value={pageTab}
+        onChange={(_, v) => setPageTab(v)}
+        sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
+      >
+        <Tab icon={<ShoppingCart sx={{ fontSize: 18 }} />} iconPosition="start" label="Medicine Sales" />
+        <Tab icon={<LocalHospital sx={{ fontSize: 18 }} />} iconPosition="start" label="Ward Patient Sales" />
+      </Tabs>
+
+      {pageTab === 0 ? (
+      <>
       <Grid container spacing={3}>
         <Grid item xs={12} md={7}>
           <Card sx={{ mb: 3 }}>
@@ -536,9 +715,18 @@ function Sales() {
                 options={medicines.filter((m) => (m.stockQuantity || m.stock_quantity || 0) > 0)}
                 getOptionLabel={(option) => option.name || ''}
                 isOptionEqualToValue={(option, value) => (option.id || option.medicineId) === (value.id || value.medicineId)}
-                inputValue={searchInput}
-                onInputChange={(_, val) => setSearchInput(val)}
-                onChange={(_, val) => { if (val) { addToCart(val); setSearchInput(''); } }}
+                value={selectedMed}
+                onInputChange={(_, val, reason) => {
+                  setSearchInput(val);
+                  if (reason === 'clear') setSelectedMed(null);
+                }}
+                onChange={(_, val) => {
+                  if (val) {
+                    setSelectedMed(val);
+                    addToCart(val);
+                    setTimeout(() => setSelectedMed(null), 200);
+                  }
+                }}
                 filterOptions={(options, state) => {
                   const input = state.inputValue.toLowerCase();
                   if (!input) return [];
@@ -719,7 +907,93 @@ function Sales() {
                 required
               />
 
-              <Typography variant="subtitle2" mb={1} mt={1}>Payment Method</Typography>
+              <Divider sx={{ my: 2 }} />
+
+              <Tabs
+                value={orderTab}
+                onChange={(_, v) => setOrderTab(v)}
+                variant="fullWidth"
+                sx={{ mb: 2, minHeight: 36 }}
+              >
+                <Tab
+                  icon={<LocalHospital sx={{ fontSize: 18 }} />}
+                  iconPosition="start"
+                  label="Doctor"
+                  sx={{ minHeight: 36, py: 0, fontSize: '0.8rem' }}
+                />
+                <Tab
+                  icon={<Badge sx={{ fontSize: 18 }} />}
+                  iconPosition="start"
+                  label="Staff"
+                  sx={{ minHeight: 36, py: 0, fontSize: '0.8rem' }}
+                />
+              </Tabs>
+
+              {orderTab === 0 && (
+                <Autocomplete
+                  freeSolo
+                  options={savedDoctors}
+                  value={doctorName}
+                  onChange={(_, v) => {
+                    if (v && typeof v === 'object') {
+                      setDoctorName(v.name);
+                      setDoctorQualification(v.qualification || '');
+                    } else {
+                      setDoctorName(v || '');
+                      setDoctorQualification('');
+                    }
+                  }}
+                  onInputChange={(_, v) => {
+                    setDoctorName(v || '');
+                    setDoctorQualification('');
+                  }}
+                  isOptionEqualToValue={(option, value) => option.name === value}
+                  getOptionLabel={(option) =>
+                    typeof option === 'string' ? option : option.name
+                  }
+                  renderOption={(props, option) => (
+                    <li {...props} key={option.name}>
+                      <Box>
+                        <Typography variant="body2" fontWeight={600}>{option.name}</Typography>
+                        {option.qualification && (
+                          <Typography variant="caption" color="text.secondary">{option.qualification}</Typography>
+                        )}
+                      </Box>
+                    </li>
+                  )}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Doctor Name"
+                      size="small"
+                      placeholder="Search or enter doctor name"
+                      sx={{ mb: 2 }}
+                    />
+                  )}
+                  sx={{ mb: 2 }}
+                />
+              )}
+
+              {orderTab === 1 && (
+                <Autocomplete
+                  freeSolo
+                  options={savedStaff}
+                  value={staffName}
+                  onInputChange={(_, v) => setStaffName(v)}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Staff Name"
+                      size="small"
+                      placeholder="Search or enter staff name"
+                      sx={{ mb: 2 }}
+                    />
+                  )}
+                  sx={{ mb: 2 }}
+                />
+              )}
+
+              <Typography variant="subtitle2" mb={1}>Payment Method</Typography>
               <Box display="flex" gap={1} mb={3}>
                 {['CASH', 'CARD', 'UPI'].map((method) => (
                   <Chip
@@ -884,7 +1158,7 @@ function Sales() {
         </CardContent>
       </Card>
 
-      <Dialog open={checkoutDialog} onClose={() => setCheckoutDialog(false)} maxWidth="sm" fullWidth>
+        <Dialog open={checkoutDialog} onClose={() => { setCheckoutDialog(false); setVerifyPersonId(''); setVerifyPasscode(''); setVerifiedPerson(null); }} maxWidth="lg" fullWidth>
         <DialogTitle>
           <Box display="flex" alignItems="center" gap={1}>
             <CheckCircle color="success" />
@@ -895,9 +1169,46 @@ function Sales() {
           <Box mb={2}>
             <Typography variant="body2" color="text.secondary">Customer: {customerName}</Typography>
             <Typography variant="body2" color="text.secondary">Phone: {customerPhone}</Typography>
+            {doctorName && <Typography variant="body2" color="text.secondary">
+              Doctor: {doctorQualification ? `${doctorName} — ${doctorQualification}` : doctorName}
+            </Typography>}
             <Typography variant="body2" color="text.secondary">Payment: {paymentMethod}</Typography>
             <Typography variant="body2" color="text.secondary">Items: {cart.length}</Typography>
           </Box>
+          <Divider sx={{ my: 2 }} />
+          <Typography variant="subtitle2" fontWeight={600} mb={1}>Verification Required</Typography>
+          <Grid container spacing={2} mb={2}>
+            <Grid item xs={12} sm={4}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Type</InputLabel>
+                <Select value={verifyPersonType} label="Type" onChange={(e) => { setVerifyPersonType(e.target.value); setVerifyPersonId(''); setVerifyPasscode(''); setVerifiedPerson(null); }}>
+                  <MenuItem value="doctor">Doctor</MenuItem>
+                  <MenuItem value="staff">Staff</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} sm={8}>
+              <Autocomplete
+                size="small"
+                options={verifyPersonType === 'doctor' ? dbDoctors : dbStaff}
+                getOptionLabel={(option) => option.fullName || ''}
+                value={(verifyPersonType === 'doctor' ? dbDoctors : dbStaff).find((p) => p.id === Number(verifyPersonId)) || null}
+                onChange={(_, v) => { setVerifyPersonId(v ? String(v.id) : ''); setVerifyPasscode(''); setVerifiedPerson(null); }}
+                renderInput={(params) => <TextField {...params} label="Select Person *" placeholder="Search..." />}
+              />
+            </Grid>
+            <Grid item xs={12} sm={8}>
+              <TextField
+                fullWidth size="small" label="Passcode *" type="password"
+                value={verifyPasscode}
+                onChange={(e) => { setVerifyPasscode(e.target.value); setVerifiedPerson(null); }}
+                disabled={!!verifiedPerson}
+              />
+            </Grid>
+          </Grid>
+          {verifiedPerson && (
+            <Alert severity="success" sx={{ mb: 2 }}>Verified: {verifiedPerson.fullName}</Alert>
+          )}
           <Divider sx={{ my: 2 }} />
           <Box display="flex" justifyContent="space-between" mb={1}>
             <Typography>Subtotal:</Typography>
@@ -920,20 +1231,20 @@ function Sales() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCheckoutDialog(false)}>Cancel</Button>
+          <Button onClick={() => { setCheckoutDialog(false); setVerifyPersonId(''); setVerifyPasscode(''); setVerifiedPerson(null); }}>Cancel</Button>
           <Button
             variant="contained"
             onClick={handleCheckout}
-            disabled={checkoutLoading}
-            startIcon={checkoutLoading ? <CircularProgress size={16} /> : <CheckCircle />}
+            disabled={checkoutLoading || staffVerifying}
+            startIcon={checkoutLoading || staffVerifying ? <CircularProgress size={16} /> : <CheckCircle />}
           >
-            {checkoutLoading ? 'Processing...' : 'Confirm Sale'}
+            {staffVerifying ? 'Verifying...' : checkoutLoading ? 'Processing...' : 'Confirm Sale'}
           </Button>
         </DialogActions>
       </Dialog>
 
       {viewSale && (
-        <Dialog open={viewDetailsDialog} onClose={() => setViewDetailsDialog(false)} maxWidth="md" fullWidth>
+        <Dialog open={viewDetailsDialog} onClose={() => setViewDetailsDialog(false)} maxWidth="lg" fullWidth>
           <DialogTitle>
             <Box display="flex" alignItems="center" gap={2}>
               <Box component="img" src={import.meta.env.VITE_PHARMACY_LOGO || '/logo.svg'} alt="Logo" sx={{ height: 48 }} />
@@ -949,6 +1260,8 @@ function Sales() {
                 <Typography variant="body2"><strong>Customer:</strong> {viewSale.customerName || 'Walk-in'}</Typography>
                 <Typography variant="body2"><strong>Phone:</strong> {viewSale.customerPhone || '-'}</Typography>
                 <Typography variant="body2"><strong>Payment:</strong> {viewSale.paymentMethod || 'CASH'}</Typography>
+                {viewSale.doctorName && <Typography variant="body2"><strong>Doctor:</strong> {viewSale.doctorName}</Typography>}
+                {viewSale.staffName && <Typography variant="body2"><strong>Staff:</strong> {viewSale.staffName}</Typography>}
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="body2"><strong>Date:</strong> {viewSale.saleDate ? format(new Date(viewSale.saleDate), 'dd MMM yyyy, hh:mm a') : '-'}</Typography>
@@ -1019,7 +1332,7 @@ function Sales() {
       )}
 
       {printSale && (
-        <Dialog open={printDialog} onClose={() => setPrintDialog(false)} maxWidth="sm" fullWidth>
+        <Dialog open={printDialog} onClose={() => setPrintDialog(false)} maxWidth="lg" fullWidth>
           <DialogTitle>
             <Box display="flex" alignItems="center" gap={2}>
               <Box component="img" src={import.meta.env.VITE_PHARMACY_LOGO || '/logo.svg'} alt="Logo" sx={{ height: 48 }} />
@@ -1108,6 +1421,10 @@ function Sales() {
           {snackbar.message}
         </Alert>
       </Snackbar>
+      </>
+      ) : (
+        <WardPatientSales />
+      )}
     </Box>
   );
 }

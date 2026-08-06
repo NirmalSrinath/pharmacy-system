@@ -848,7 +848,7 @@ function PurchaseImport() {
       )}
 
       {/* Import Edit Dialog */}
-      <Dialog open={editDialog} onClose={() => setEditDialog(false)} maxWidth="md" fullWidth>
+      <Dialog open={editDialog} onClose={() => setEditDialog(false)} maxWidth="lg" fullWidth>
         <DialogTitle>Edit Import Item</DialogTitle>
         <DialogContent>
           {editRow && (
@@ -884,7 +884,7 @@ function PurchaseImport() {
       </Dialog>
 
       {/* Medicine Edit Dialog */}
-      <Dialog open={editMedDialog} onClose={() => setEditMedDialog(false)} maxWidth="md" fullWidth>
+      <Dialog open={editMedDialog} onClose={() => setEditMedDialog(false)} maxWidth="lg" fullWidth>
         <DialogTitle>Update Medicine</DialogTitle>
         <DialogContent>
           {editMedicine && (
@@ -1003,7 +1003,7 @@ function PurchaseImport() {
       </Dialog>
 
       {/* Import Result Dialog */}
-      <Dialog open={resultDialog} onClose={() => setResultDialog(false)} maxWidth="sm" fullWidth>
+      <Dialog open={resultDialog} onClose={() => setResultDialog(false)} maxWidth="lg" fullWidth>
         <DialogTitle>
           <Box display="flex" alignItems="center" gap={1}>
             {importResult?.failCount === 0 ? <CheckCircle color="success" /> : <Warning color="warning" />}

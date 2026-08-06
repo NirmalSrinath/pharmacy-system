@@ -46,6 +46,12 @@ public class Sale {
     @Builder.Default
     private BigDecimal total = BigDecimal.ZERO;
 
+    @Column(name = "doctor_name", length = 200)
+    private String doctorName;
+
+    @Column(name = "staff_name", length = 200)
+    private String staffName;
+
     @Column(name = "payment_method")
     @Builder.Default
     private String paymentMethod = "CASH";

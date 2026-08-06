@@ -46,4 +46,13 @@ public interface SalesRepository extends JpaRepository<Sale, Long> {
 
     @Query("SELECT COALESCE(SUM(s.total), 0) FROM Sale s WHERE s.saleDate >= :startOfMonth")
     BigDecimal sumCurrentMonthSales(@Param("startOfMonth") LocalDateTime startOfMonth);
+
+    @Query(value = "SELECT invoice_number FROM sales WHERE invoice_number LIKE CONCAT(:prefix, '%') ORDER BY invoice_number DESC LIMIT 1", nativeQuery = true)
+    Optional<String> findLatestInvoiceNumberByPrefix(@Param("prefix") String prefix);
+
+    @Query(value = "SELECT DATE_FORMAT(s.sale_date, '%b') AS month, COALESCE(SUM(s.total), 0) AS total " +
+           "FROM sales s WHERE s.sale_date >= :startDate " +
+           "GROUP BY YEAR(s.sale_date), MONTH(s.sale_date), DATE_FORMAT(s.sale_date, '%b') " +
+           "ORDER BY YEAR(s.sale_date), MONTH(s.sale_date)", nativeQuery = true)
+    List<Object[]> findMonthlySalesAggregation(@Param("startDate") LocalDateTime startDate);
 }

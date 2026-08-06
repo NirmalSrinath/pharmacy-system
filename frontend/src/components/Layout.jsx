@@ -54,7 +54,7 @@ const menuItems = [
   { text: 'Stock', icon: <Inventory />, path: '/stock', roles: ['ADMIN', 'PHARMACIST'] },
   { text: 'Medicines', icon: <Medication />, path: '/medicines', roles: ['ADMIN', 'PHARMACIST'] },
   { text: 'Reports', icon: <Assessment />, path: '/reports', roles: ['ADMIN', 'PHARMACIST'] },
-  { text: 'Alerts', icon: <NotificationsActive />, path: '/alerts', roles: ['ADMIN', 'PHARMACIST'] },
+  { text: 'Alerts', icon: <NotificationsActive />, path: '/alerts', roles: ['ADMIN', 'PHARMACIST', 'SALESPERSON'] },
   { text: 'Users', icon: <People />, path: '/users', roles: ['ADMIN'] },
   { text: 'Backups', icon: <Backup />, path: '/backup', roles: ['ADMIN'] },
 ];

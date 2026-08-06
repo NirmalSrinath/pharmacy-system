@@ -22,4 +22,10 @@ public interface PurchaseRepository extends JpaRepository<Purchase, Long> {
     BigDecimal sumAllPurchases();
 
     long countByPurchaseDateBetween(LocalDateTime startDate, LocalDateTime endDate);
+
+    @Query(value = "SELECT DATE_FORMAT(p.purchase_date, '%b') AS month, COALESCE(SUM(p.total), 0) AS total " +
+           "FROM purchases p WHERE p.purchase_date >= :startDate " +
+           "GROUP BY YEAR(p.purchase_date), MONTH(p.purchase_date), DATE_FORMAT(p.purchase_date, '%b') " +
+           "ORDER BY YEAR(p.purchase_date), MONTH(p.purchase_date)", nativeQuery = true)
+    List<Object[]> findMonthlyPurchasesAggregation(@Param("startDate") LocalDateTime startDate);
 }

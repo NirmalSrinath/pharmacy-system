@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { dashboardAPI, salesAPI } from '../services/api';
+import { dashboardAPI, salesAPI, purchaseAPI, medicineAPI } from '../services/api';
 import {
   Box,
   Grid,
@@ -19,6 +19,7 @@ import {
   TableRow,
   Paper,
   Chip,
+  TextField,
 } from '@mui/material';
 import {
   TrendingUp,
@@ -84,8 +85,14 @@ function Dashboard() {
   const [dashboardData, setDashboardData] = useState(null);
   const [recentSales, setRecentSales] = useState([]);
   const [monthlyData, setMonthlyData] = useState([]);
+  const [todayPurchases, setTodayPurchases] = useState(0);
+  const [expiryCount, setExpiryCount] = useState(0);
+  const [lowStockCount, setLowStockCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [salesLoading, setSalesLoading] = useState(false);
   const [error, setError] = useState('');
+  const [dateFrom, setDateFrom] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [dateTo, setDateTo] = useState(format(new Date(), 'yyyy-MM-dd'));
   const { user, isAdmin, isPharmacist } = useAuth();
   const navigate = useNavigate();
 
@@ -93,24 +100,73 @@ function Dashboard() {
     fetchDashboard();
   }, []);
 
+  const fetchAllByDateRange = async (from, to) => {
+    setSalesLoading(true);
+    try {
+      const params = {};
+      if (from) params.startDate = from;
+      if (to) params.endDate = to;
+
+      const [salesRes, purchasesRes, expiryRes, lowStockRes] = await Promise.all([
+        salesAPI.getAll(params).catch(() => ({ data: { data: [] } })),
+        purchaseAPI.getAll(params).catch(() => ({ data: { data: [] } })),
+        medicineAPI.getExpiryAlerts({ days: 30 }).catch(() => ({ data: { data: [] } })),
+        medicineAPI.getLowStock({ threshold: 0 }).catch(() => ({ data: { data: [] } })),
+      ]);
+
+      const salesData = salesRes.data?.data || salesRes.data?.content || salesRes.data || [];
+      const salesArr = Array.isArray(salesData) ? salesData : [];
+      setRecentSales(salesArr);
+
+      const salesTotal = salesArr.reduce((sum, s) => sum + Number(s.total || s.grandTotal || s.grand_total || s.totalAmount || 0), 0);
+      setDashboardData(prev => ({ ...prev, totalSalesToday: salesTotal }));
+
+      const purchasesData = purchasesRes.data?.data || purchasesRes.data || [];
+      const purchasesArr = Array.isArray(purchasesData) ? purchasesData : [];
+      const purchasesTotal = purchasesArr.reduce((sum, p) => sum + Number(p.total || p.totalAmount || 0), 0);
+      setTodayPurchases(purchasesTotal);
+
+      const expiryMeds = expiryRes.data?.data || expiryRes.data || [];
+      setExpiryCount(Array.isArray(expiryMeds) ? expiryMeds.length : 0);
+
+      const lowStockMeds = lowStockRes.data?.data || lowStockRes.data || [];
+      setLowStockCount(Array.isArray(lowStockMeds) ? lowStockMeds.length : 0);
+    } catch {
+      setRecentSales([]);
+    } finally {
+      setSalesLoading(false);
+    }
+  };
+
   const fetchDashboard = async () => {
     setLoading(true);
     setError('');
     try {
-      const [dashRes, salesRes] = await Promise.all([
+      const today = format(new Date(), 'yyyy-MM-dd');
+      const [dashRes, salesRes, expiryRes, lowStockRes] = await Promise.all([
         dashboardAPI.getDashboard().catch(() => ({ data: {} })),
-        salesAPI.getAll({ limit: 10 }).catch(() => ({ data: { data: [] } })),
+        salesAPI.getAll({ startDate: today, endDate: today }).catch(() => ({ data: { data: [] } })),
+        medicineAPI.getExpiryAlerts({ days: 30 }).catch(() => ({ data: { data: [] } })),
+        medicineAPI.getLowStock({ threshold: 0 }).catch(() => ({ data: { data: [] } })),
       ]);
 
       const dash = dashRes.data?.data || dashRes.data || {};
       setDashboardData({
-        totalSalesToday: dash.totalSalesToday || dash.todaySales || 0,
-        totalPurchases: dash.totalPurchases || dash.todayPurchases || 0,
+        totalSalesToday: dash.todaySales || dash.totalSalesToday || dash.today_sales || 0,
         medicinesInStock: dash.medicinesInStock || dash.totalMedicines || 0,
         lowStockAlerts: dash.lowStockAlerts || dash.lowStockCount || 0,
         expiryAlerts: dash.expiryAlerts || dash.expiryAlertCount || 0,
         monthlySalesData: dash.monthlySalesData || [],
       });
+
+      const todayPurchasesVal = dash.todayPurchases || 0;
+      setTodayPurchases(Number(todayPurchasesVal || 0));
+
+      const expiryMeds = expiryRes.data?.data || expiryRes.data || [];
+      setExpiryCount(Array.isArray(expiryMeds) ? expiryMeds.length : 0);
+
+      const lowStockMeds = lowStockRes.data?.data || lowStockRes.data || [];
+      setLowStockCount(Array.isArray(lowStockMeds) ? lowStockMeds.length : 0);
 
       const sales = salesRes.data?.data || salesRes.data?.content || salesRes.data || [];
       setRecentSales(Array.isArray(sales) ? sales.slice(0, 10) : []);
@@ -203,12 +259,10 @@ function Dashboard() {
         </Grid>
         <Grid item xs={12} sm={6} md={4} lg={2.4}>
           <StatCard
-            title="Purchases"
-            value={`₹${Number(stats.totalPurchases || 0).toLocaleString('en-IN')}`}
+            title="Purchases Today"
+            value={`₹${Number(todayPurchases || 0).toLocaleString('en-IN')}`}
             icon={<ShoppingCart sx={{ color: 'secondary.main' }} />}
             color="secondary"
-            trend={true}
-            trendValue="+5% this week"
           />
         </Grid>
         <Grid item xs={12} sm={6} md={4} lg={2.4}>
@@ -221,22 +275,18 @@ function Dashboard() {
         </Grid>
         <Grid item xs={12} sm={6} md={4} lg={2.4}>
           <StatCard
-            title="Low Stock Alerts"
-            value={stats.lowStockAlerts || 0}
+            title="Low Stock"
+            value={lowStockCount}
             icon={<Warning sx={{ color: 'warning.main' }} />}
             color="warning"
-            trend={false}
-            trendValue="Needs attention"
           />
         </Grid>
         <Grid item xs={12} sm={6} md={4} lg={2.4}>
           <StatCard
-            title="Expiry Alerts"
-            value={stats.expiryAlerts || 0}
+            title="Expiry (30 days)"
+            value={expiryCount}
             icon={<AccessTime sx={{ color: 'error.main' }} />}
             color="error"
-            trend={false}
-            trendValue="Check inventory"
           />
         </Grid>
       </Grid>
@@ -332,9 +382,37 @@ function Dashboard() {
                 <Typography variant="h6" fontWeight={600}>
                   Recent Sales
                 </Typography>
-                <Button size="small" onClick={() => navigate('/sales')}>
-                  View All
-                </Button>
+                <Box display="flex" gap={1} alignItems="center">
+                  <TextField
+                    size="small" type="date" label="From"
+                    value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ width: 150 }}
+                  />
+                  <TextField
+                    size="small" type="date" label="To"
+                    value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                    sx={{ width: 150 }}
+                  />
+                  <Button variant="contained" size="small" onClick={() => fetchAllByDateRange(dateFrom, dateTo)}>
+                    Search
+                  </Button>
+                  <Button
+                    variant="outlined" size="small" color="inherit"
+                    onClick={() => {
+                      const t = format(new Date(), 'yyyy-MM-dd');
+                      setDateFrom(t);
+                      setDateTo(t);
+                      fetchAllByDateRange(t, t);
+                    }}
+                  >
+                    Today
+                  </Button>
+                  <Button size="small" onClick={() => navigate('/sales')}>
+                    View All
+                  </Button>
+                </Box>
               </Box>
               <TableContainer>
                 <Table size="small">
@@ -342,6 +420,7 @@ function Dashboard() {
                     <TableRow>
                       <TableCell sx={{ fontWeight: 600 }}>Invoice #</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>Customer</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>Doctor</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>Items</TableCell>
                       <TableCell sx={{ fontWeight: 600 }} align="right">
                         Total
@@ -353,7 +432,7 @@ function Dashboard() {
                   <TableBody>
                     {recentSales.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} align="center">
+                        <TableCell colSpan={7} align="center">
                           <Typography color="text.secondary" py={2}>
                             No recent sales
                           </Typography>
@@ -368,10 +447,15 @@ function Dashboard() {
                             </Typography>
                           </TableCell>
                           <TableCell>{sale.customerName || sale.customer_name || 'Walk-in'}</TableCell>
-                          <TableCell>{sale.items?.length || sale.totalItems || '-'}</TableCell>
+                          <TableCell>
+                            <Typography variant="body2" color={sale.doctorName ? 'text.primary' : 'text.secondary'}>
+                              {sale.doctorName || '-'}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>{sale.saleItems?.length || sale.items?.length || sale.totalItems || '-'}</TableCell>
                           <TableCell align="right">
                             <Typography variant="body2" fontWeight={600}>
-                              ₹{Number(sale.grandTotal || sale.grand_total || sale.totalAmount || 0).toLocaleString('en-IN')}
+                              ₹{Number(sale.total || sale.grandTotal || sale.grand_total || sale.totalAmount || 0).toLocaleString('en-IN')}
                             </Typography>
                           </TableCell>
                           <TableCell>

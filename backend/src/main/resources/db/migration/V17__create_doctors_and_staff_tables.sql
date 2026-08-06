@@ -1,0 +1,42 @@
+CREATE TABLE IF NOT EXISTS doctors (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(200) NOT NULL,
+    gender VARCHAR(10),
+    date_of_birth DATE,
+    phone VARCHAR(15) NOT NULL,
+    email VARCHAR(200),
+    address TEXT,
+    state VARCHAR(100),
+    pincode VARCHAR(10),
+    aadhaar_number VARCHAR(20),
+    pan_number VARCHAR(20),
+    registration_number VARCHAR(100),
+    registration_council VARCHAR(200),
+    qualification VARCHAR(200),
+    specialization VARCHAR(200),
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS staff (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    full_name VARCHAR(200) NOT NULL,
+    gender VARCHAR(10),
+    date_of_birth DATE,
+    phone VARCHAR(15) NOT NULL,
+    email VARCHAR(200),
+    address TEXT,
+    state VARCHAR(100),
+    pincode VARCHAR(10),
+    aadhaar_number VARCHAR(20),
+    pan_number VARCHAR(20),
+    employee_id VARCHAR(50),
+    designation VARCHAR(100),
+    department VARCHAR(100),
+    qualification VARCHAR(200),
+    date_of_joining DATE,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);

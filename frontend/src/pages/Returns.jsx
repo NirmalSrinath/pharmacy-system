@@ -361,7 +361,7 @@ function Returns() {
         </CardContent>
       </Card>
 
-      <Dialog open={confirmDialog} onClose={() => setConfirmDialog(false)} maxWidth="sm" fullWidth>
+      <Dialog open={confirmDialog} onClose={() => setConfirmDialog(false)} maxWidth="lg" fullWidth>
         <DialogTitle>
           <Box display="flex" alignItems="center" gap={1}>
             <AssignmentReturn color="error" />

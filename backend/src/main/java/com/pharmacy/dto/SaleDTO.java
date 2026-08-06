@@ -23,6 +23,10 @@ public class SaleDTO {
 
     private String customerPhone;
 
+    private String doctorName;
+
+    private String staffName;
+
     private String invoiceNumber;
 
     @NotNull(message = "Sale items are required")

@@ -24,7 +24,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,7 +32,6 @@ public class SalesService {
     private final SalesRepository salesRepository;
     private final MedicineRepository medicineRepository;
     private final UserRepository userRepository;
-    private static final AtomicLong invoiceCounter = new AtomicLong(1000);
 
     public SalesService(SalesRepository salesRepository,
                         MedicineRepository medicineRepository,
@@ -57,6 +55,8 @@ public class SalesService {
         Sale sale = Sale.builder()
                 .customerName(saleDTO.getCustomerName())
                 .customerPhone(saleDTO.getCustomerPhone())
+                .doctorName(saleDTO.getDoctorName())
+                .staffName(saleDTO.getStaffName())
                 .invoiceNumber(invoiceNumber)
                 .paymentMethod(saleDTO.getPaymentMethod() != null ? saleDTO.getPaymentMethod() : "CASH")
                 .createdBy(user)
@@ -143,10 +143,21 @@ public class SalesService {
                 .collect(Collectors.toList());
     }
 
-    private String generateInvoiceNumber() {
-        long count = invoiceCounter.incrementAndGet();
+    public String generateInvoiceNumber() {
         String datePart = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        return "INV-" + datePart + "-" + String.format("%04d", count);
+        String prefix = "INV-" + datePart + "-";
+        long nextSeq = 1;
+        var latest = salesRepository.findLatestInvoiceNumberByPrefix(prefix);
+        if (latest.isPresent()) {
+            String lastNum = latest.get();
+            String seqPart = lastNum.substring(lastNum.lastIndexOf('-') + 1);
+            try {
+                nextSeq = Long.parseLong(seqPart) + 1;
+            } catch (NumberFormatException ignored) {
+                nextSeq = System.currentTimeMillis() % 10000;
+            }
+        }
+        return prefix + String.format("%04d", nextSeq);
     }
 
     public SaleDTO toDTO(Sale sale) {
@@ -169,6 +180,8 @@ public class SalesService {
                 .id(sale.getId())
                 .customerName(sale.getCustomerName())
                 .customerPhone(sale.getCustomerPhone())
+                .doctorName(sale.getDoctorName())
+                .staffName(sale.getStaffName())
                 .invoiceNumber(sale.getInvoiceNumber())
                 .saleItems(itemDTOs)
                 .subtotal(sale.getSubtotal())

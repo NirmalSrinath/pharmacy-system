@@ -79,6 +79,18 @@ export const returnsAPI = {
   create: (data) => api.post('/api/returns', data),
 };
 
+export const wardPatientAPI = {
+  getAll: (params) => api.get('/api/ward-patients', { params }),
+  getById: (id) => api.get(`/api/ward-patients/${id}`),
+  create: (data) => api.post('/api/ward-patients', data),
+  update: (id, data) => api.put(`/api/ward-patients/${id}`, data),
+  addItem: (id, data) => api.post(`/api/ward-patients/${id}/items`, data),
+  removeItem: (id, itemId) => api.delete(`/api/ward-patients/${id}/items/${itemId}`),
+  updateDiscount: (id, discount) => api.put(`/api/ward-patients/${id}/discount`, { discount }),
+  finalize: (id) => api.post(`/api/ward-patients/${id}/finalize`),
+  delete: (id) => api.delete(`/api/ward-patients/${id}`),
+};
+
 export const reportsAPI = {
   getDaily: (params) => api.get('/api/reports/daily', { params }),
   getWeekly: (params) => api.get('/api/reports/weekly', { params }),
@@ -96,6 +108,41 @@ export const backupAPI = {
   create: () => api.post('/api/backup/create'),
   download: (id) => api.get(`/api/backup/download/${id}`, { responseType: 'blob' }),
   delete: (id) => api.delete(`/api/backup/${id}`),
+};
+
+export const doctorAPI = {
+  getAll: () => api.get('/api/doctors'),
+  getActive: () => api.get('/api/doctors/active'),
+  getById: (id) => api.get(`/api/doctors/${id}`),
+  search: (name) => api.get('/api/doctors/search', { params: { name } }),
+  create: (data) => api.post('/api/doctors', data),
+  update: (id, data) => api.put(`/api/doctors/${id}`, data),
+  toggle: (id) => api.put(`/api/doctors/${id}/toggle`),
+  delete: (id) => api.delete(`/api/doctors/${id}`),
+  verify: (id, passcode) => api.post('/api/doctors/verify', { id, passcode }),
+};
+
+export const staffAPI = {
+  getAll: () => api.get('/api/staff'),
+  getActive: () => api.get('/api/staff/active'),
+  getById: (id) => api.get(`/api/staff/${id}`),
+  search: (name) => api.get('/api/staff/search', { params: { name } }),
+  create: (data) => api.post('/api/staff', data),
+  update: (id, data) => api.put(`/api/staff/${id}`, data),
+  toggle: (id) => api.put(`/api/staff/${id}/toggle`),
+  delete: (id) => api.delete(`/api/staff/${id}`),
+  verify: (id, passcode) => api.post('/api/staff/verify', { id, passcode }),
+};
+
+export const supplierAPI = {
+  getAll: () => api.get('/api/suppliers'),
+  getActive: () => api.get('/api/suppliers/active'),
+  getById: (id) => api.get(`/api/suppliers/${id}`),
+  search: (name) => api.get('/api/suppliers/search', { params: { name } }),
+  create: (data) => api.post('/api/suppliers', data),
+  update: (id, data) => api.put(`/api/suppliers/${id}`, data),
+  toggle: (id) => api.put(`/api/suppliers/${id}/toggle`),
+  delete: (id) => api.delete(`/api/suppliers/${id}`),
 };
 
 export default api;

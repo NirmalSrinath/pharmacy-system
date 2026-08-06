@@ -15,6 +15,8 @@ import java.util.List;
 public class DashboardDTO {
     private BigDecimal totalSales;
     private BigDecimal totalPurchases;
+    private BigDecimal todaySales;
+    private BigDecimal todayPurchases;
     private Long totalMedicines;
     private Long lowStockCount;
     private Long expiryAlertCount;
@@ -22,4 +24,5 @@ public class DashboardDTO {
     private BigDecimal monthlySales;
     private Long totalSalesCount;
     private Long totalPurchaseCount;
+    private List<MonthlyData> monthlySalesData;
 }
