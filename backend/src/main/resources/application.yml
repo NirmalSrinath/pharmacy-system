@@ -17,9 +17,14 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+#  main:
+#    allow-bean-definition-overriding: true
   autoconfigure:
     exclude:
       - org.springframework.boot.actuate.autoconfigure.observation.ObservationAutoConfiguration
+      - org.springframework.boot.micrometer.tracing.opentelemetry.autoconfigure.OpenTelemetryTracingAutoConfiguration
+      - org.springframework.boot.micrometer.observation.autoconfigure.ObservationAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.tracing.OpenTelemetryAutoConfiguration
 
 server:
   port: 8080
