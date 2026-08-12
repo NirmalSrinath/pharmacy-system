@@ -1,0 +1,66 @@
+spring:
+  application:
+    name: pharmacy-backend
+  datasource:
+    url: jdbc:mysql://localhost:3306/pharmacy_db?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.actuate.autoconfigure.observation.ObservationAutoConfiguration
+
+server:
+  port: 8080
+
+# Database Backup Configuration
+backup:
+  enabled: true
+  local-path: D:/Project/HSProject/backups
+  mysqldump-path: "C:/Program Files/MySQL/MySQL Server 8.0/bin/mysqldump.exe"
+  schedule-cron: "0 5 1 * * *"
+  retention-days: 30
+  compress: true
+  email:
+    enabled: false
+    host: smtp.gmail.com
+    port: 587
+    username: your-email@gmail.com
+    password: your-app-password
+    to: admin@pharmacy.com
+  onedrive:
+    enabled: false
+    client-id: your-client-id
+    client-secret: your-client-secret
+    tenant-id: your-tenant-id
+    folder: /PharmacyBackups
+
+# JWT Configuration
+jwt:
+  secret:
+    key: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+  expiration:
+    ms: 86400000
+
+# CORS Configuration
+app:
+  cors:
+    allowed-origins: http://localhost:5174
+
+# SpringDoc OpenAPI Configuration
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
